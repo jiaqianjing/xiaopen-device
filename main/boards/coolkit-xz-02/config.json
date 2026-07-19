@@ -1,0 +1,27 @@
+{
+    "target": "esp32s3",
+    "builds": [
+        {
+            "name": "coolkit-xz-02",
+            "sdkconfig_append": [
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/16m_face.csv\"",
+                "CONFIG_USE_CUSTOM_WAKE_WORD=y",
+                "CONFIG_CUSTOM_WAKE_WORD=\"xiao pen xiao pen\"",
+                "CONFIG_CUSTOM_WAKE_WORD_DISPLAY=\"小喷小喷\"",
+                "CONFIG_CUSTOM_WAKE_WORD_THRESHOLD=20",
+                "CONFIG_SEND_WAKE_WORD_DATA=n",
+                "CONFIG_SR_MN_CN_NONE=n",
+                "CONFIG_SR_MN_CN_MULTINET7_QUANT=y",
+                "CONFIG_FLASH_HUMAN_FACE_FEAT_MFN_S8_V1=y",
+                "CONFIG_FLASH_HUMAN_FACE_FEAT_MBF_S8_V1=n",
+                "CONFIG_HUMAN_FACE_FEAT_MFN_S8_V1=y",
+                "CONFIG_HUMAN_FACE_FEAT_MODEL_IN_FLASH_RODATA=y",
+                "CONFIG_FLASH_HUMAN_FACE_DETECT_MSRMNP_S8_V1=y",
+                "CONFIG_FLASH_ESPDET_PICO_224_224_FACE=n",
+                "CONFIG_FLASH_ESPDET_PICO_416_416_FACE=n",
+                "CONFIG_HUMAN_FACE_DETECT_MSRMNP_S8_V1=y",
+                "CONFIG_HUMAN_FACE_DETECT_MODEL_IN_FLASH_RODATA=y"
+            ]
+        }
+    ]
+}

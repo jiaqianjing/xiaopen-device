@@ -1,0 +1,11 @@
+# ESP-IDF Partition Table
+# Single-app layout for local face models. The models make the application too
+# large for dual 4 MB OTA slots, so updates for this board are performed by USB.
+# The assets partition remains independently flashable, and face features live
+# in a private SPIFFS partition that never stores camera images.
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,    0x4000,
+phy_init, data, phy,     0xf000,    0x1000,
+factory,  app,  factory, 0x20000,   0x6e0000,
+assets,   data, spiffs,  0x700000,  8M,
+face_db,  data, spiffs,  0xf00000,  1M,
