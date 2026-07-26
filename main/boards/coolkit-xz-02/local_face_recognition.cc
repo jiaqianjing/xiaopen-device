@@ -6,6 +6,7 @@
 #include <cstring>
 #include <list>
 #include <string>
+#include <string_view>
 
 #include <esp_heap_caps.h>
 #include <esp_http_client.h>
@@ -27,6 +28,23 @@
 
 namespace {
 constexpr char kTag[] = "LocalFace";
+extern const char door_dad_prompt_ogg_start[]
+    asm("_binary_door_dad_prompt_ogg_start");
+extern const char door_dad_prompt_ogg_end[]
+    asm("_binary_door_dad_prompt_ogg_end");
+extern const char door_stranger_prompt_ogg_start[]
+    asm("_binary_door_stranger_prompt_ogg_start");
+extern const char door_stranger_prompt_ogg_end[]
+    asm("_binary_door_stranger_prompt_ogg_end");
+
+const std::string_view kDadPromptOgg(
+    door_dad_prompt_ogg_start,
+    static_cast<size_t>(door_dad_prompt_ogg_end -
+                        door_dad_prompt_ogg_start));
+const std::string_view kStrangerPromptOgg(
+    door_stranger_prompt_ogg_start,
+    static_cast<size_t>(door_stranger_prompt_ogg_end -
+                        door_stranger_prompt_ogg_start));
 constexpr char kFaceDbPath[] = "/face/dad.face.db";
 constexpr size_t kMaxJpegBytes = 200 * 1024;
 constexpr int kConfirmFrames = 2;
@@ -88,6 +106,14 @@ void LocalFaceRecognition::RequestClearDad() {
     operation_.store(LocalFaceOperation::Clearing);
     command_.store(Command::ClearDad);
     Notify("正在清除爸爸的人脸数据");
+}
+
+void LocalFaceRecognition::TestAnnouncement(LocalFaceIdentity identity) {
+    if (identity == LocalFaceIdentity::Dad) {
+        Announce(Identity::Dad, true);
+    } else if (identity == LocalFaceIdentity::Stranger) {
+        Announce(Identity::Stranger, true);
+    }
 }
 
 LocalFaceStatus LocalFaceRecognition::GetStatus() const {
@@ -455,12 +481,13 @@ void LocalFaceRecognition::ResetPresence() {
     confirmed_identity_.store(Identity::None);
 }
 
-void LocalFaceRecognition::Announce(Identity identity) {
+void LocalFaceRecognition::Announce(Identity identity, bool bypass_cooldown) {
     const int64_t now = esp_timer_get_time();
     int64_t* last_announcement = identity == Identity::Dad
         ? &last_dad_announcement_us_ : &last_stranger_announcement_us_;
     const int64_t cooldown_us = static_cast<int64_t>(CONFIG_LOCAL_FACE_ANNOUNCE_COOLDOWN_MS) * 1000;
-    if (*last_announcement != 0 && now - *last_announcement < cooldown_us) {
+    if (!bypass_cooldown && *last_announcement != 0 &&
+        now - *last_announcement < cooldown_us) {
         return;
     }
     *last_announcement = now;
@@ -470,11 +497,15 @@ void LocalFaceRecognition::Announce(Identity identity) {
         auto& scheduled_app = Application::GetInstance();
         auto* display = Board::GetInstance().GetDisplay();
         if (identity == Identity::Dad) {
-            display->ShowNotification("爸爸回来了！", 5000);
-            scheduled_app.PlaySound(Lang::Sounds::OGG_DAD_HOME);
+            display->SetEmotion("happy");
+            display->ShowNotification("认出爸爸了，正在想一句俏皮话…", 5000);
+            scheduled_app.SendAudioPrompt(kDadPromptOgg,
+                                          Lang::Sounds::OGG_DAD_HOME);
         } else {
-            display->ShowNotification("陌生人哦，不要开门～", 5000);
-            scheduled_app.PlaySound(Lang::Sounds::OGG_STRANGER_ALERT);
+            display->SetEmotion("shocked");
+            display->ShowNotification("发现陌生人，正在组织警戒台词…", 5000);
+            scheduled_app.SendAudioPrompt(kStrangerPromptOgg,
+                                          Lang::Sounds::OGG_STRANGER_ALERT);
         }
     });
 }

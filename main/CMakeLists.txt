@@ -725,9 +725,8 @@ elseif(CONFIG_BOARD_TYPE_COOLKIT_XZ_02)
     set(BOARD_TYPE "coolkit-xz-02")
     set(BUILTIN_TEXT_FONT font_noto_basic_20_4)
     set(BUILTIN_ICON_FONT font_awesome_20_4)
-    # Keep the complete Chinese font, but use compact static emoji so the
-    # custom MultiNet wake model and private face database fit in 16 MB flash.
-    set(DEFAULT_EMOJI_COLLECTION twemoji_64)
+    # This board renders its desktop-pet face procedurally, so no image emoji
+    # collection is needed in the assets partition.
 elseif(CONFIG_BOARD_TYPE_XINGZHI_CUBE_1_54TFT_ML307)
     set(BOARD_TYPE "xingzhi-cube-1.54tft-ml307")
     set(BUILTIN_TEXT_FONT font_noto_basic_20_4)

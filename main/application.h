@@ -7,6 +7,7 @@
 #include <esp_timer.h>
 
 #include <string>
+#include <string_view>
 #include <mutex>
 #include <deque>
 #include <memory>
@@ -106,6 +107,8 @@ public:
 
     void Reboot();
     void WakeWordInvoke(const std::string& wake_word);
+    void SendAudioPrompt(const std::string_view& prompt_ogg,
+                         const std::string_view& fallback_sound = {});
     bool UpgradeFirmware(const std::string& url, const std::string& version = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
@@ -159,6 +162,8 @@ private:
     void HandleWakeWordDetectedEvent();
     void ContinueOpenAudioChannel(ListeningMode mode);
     void ContinueWakeWordInvoke(const std::string& wake_word);
+    void ContinueAudioPrompt(const std::string_view& prompt_ogg,
+                             const std::string_view& fallback_sound);
 
     // Activation task (runs in background)
     void ActivationTask();

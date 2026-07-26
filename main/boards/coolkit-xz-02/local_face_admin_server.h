@@ -27,6 +27,7 @@ private:
     static esp_err_t PreviewHandler(httpd_req_t* req);
     static esp_err_t EnrollHandler(httpd_req_t* req);
     static esp_err_t ClearHandler(httpd_req_t* req);
+    static esp_err_t AnnounceHandler(httpd_req_t* req);
     static esp_err_t VoiceSettingsHandler(httpd_req_t* req);
     static esp_err_t RebootHandler(httpd_req_t* req);
 

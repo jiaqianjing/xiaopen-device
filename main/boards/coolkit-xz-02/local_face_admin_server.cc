@@ -162,6 +162,7 @@ bool LocalFaceAdminServer::StartHttpServer() {
         {.uri = "/api/preview.jpg", .method = HTTP_GET, .handler = PreviewHandler, .user_ctx = this},
         {.uri = "/api/enroll", .method = HTTP_POST, .handler = EnrollHandler, .user_ctx = this},
         {.uri = "/api/clear", .method = HTTP_POST, .handler = ClearHandler, .user_ctx = this},
+        {.uri = "/api/announce", .method = HTTP_POST, .handler = AnnounceHandler, .user_ctx = this},
         {.uri = "/api/voice", .method = HTTP_POST, .handler = VoiceSettingsHandler, .user_ctx = this},
         {.uri = "/api/reboot", .method = HTTP_POST, .handler = RebootHandler, .user_ctx = this},
     };
@@ -346,6 +347,29 @@ esp_err_t LocalFaceAdminServer::ClearHandler(httpd_req_t* req) {
     return httpd_resp_sendstr(req, "{\"ok\":true,\"pending\":\"clear\"}");
 }
 
+esp_err_t LocalFaceAdminServer::AnnounceHandler(httpd_req_t* req) {
+    auto* self = static_cast<LocalFaceAdminServer*>(req->user_ctx);
+    if (self == nullptr || !self->IsSameSubnetRequest(req) || !self->HasValidToken(req)) {
+        return self == nullptr ? ESP_FAIL : self->SendForbidden(req);
+    }
+    char query[64] = {};
+    char identity[16] = {};
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK ||
+        httpd_query_key_value(query, "identity", identity, sizeof(identity)) != ESP_OK) {
+        return self->SendError(req, "400 Bad Request", "缺少 identity 参数");
+    }
+    if (std::strcmp(identity, "dad") == 0) {
+        self->face_.TestAnnouncement(LocalFaceIdentity::Dad);
+    } else if (std::strcmp(identity, "stranger") == 0) {
+        self->face_.TestAnnouncement(LocalFaceIdentity::Stranger);
+    } else {
+        return self->SendError(req, "400 Bad Request", "identity 只能是 dad 或 stranger");
+    }
+    self->SetSecurityHeaders(req);
+    httpd_resp_set_type(req, "application/json; charset=utf-8");
+    return httpd_resp_sendstr(req, "{\"ok\":true}");
+}
+
 esp_err_t LocalFaceAdminServer::VoiceSettingsHandler(httpd_req_t* req) {
     auto* self = static_cast<LocalFaceAdminServer*>(req->user_ctx);
     if (self == nullptr || !self->IsSameSubnetRequest(req) || !self->HasValidToken(req)) {
@@ -425,8 +449,9 @@ std::string LocalFaceAdminServer::BuildPage() const {
 <section class="card"><div class="grid"><div class="item"><div class="label">摄像头</div><div class="value"><span id="cameraDot" class="dot"></span><span id="camera">读取中</span></div></div><div class="item"><div class="label">画面人脸</div><div class="value" id="faces">—</div></div><div class="item"><div class="label">爸爸样本</div><div class="value" id="samples">—</div></div><div class="item"><div class="label">当前识别</div><div class="value" id="identity">—</div></div></div></section>
 <section class="card"><h2>摄像头预览</h2><p class="hint">这是 S3 识别任务已抓取的最近一帧，不会额外请求摄像头。</p><div class="preview"><span id="previewEmpty" class="preview-empty">等待摄像头画面…</span><img id="preview" alt="本地摄像头预览"><span id="faceBadge" class="badge">等待检测</span></div></section>
 <section class="card"><h2>爸爸人脸样本</h2><p>点击录入后有 20 秒对准时间。画面中只能有爸爸一人；保持正脸约 2 秒，成功后样本数会增加。</p><div class="actions"><button id="enroll">录入爸爸样本</button><button id="clear" class="danger">清空全部样本</button></div><p id="faceNotice" class="notice"></p></section>
+<section class="card"><h2>门口播报测试</h2><p>无需摄像头即可模拟识别事件。小喷会把身份结果交给当前 LLM，即兴生成台词；断网时自动播放固定兜底语音。</p><div class="actions"><button id="testDad">模拟爸爸回家</button><button id="testStranger" class="danger">模拟发现陌生人</button></div><p id="announceNotice" class="notice"></p></section>
 <section class="card"><h2>本地语音设置</h2><div class="form"><div class="field"><label for="wakeText">显示唤醒词</label><input id="wakeText" maxlength="16" placeholder="小喷小喷"></div><div class="field"><label for="wakeCommand">识别拼音</label><input id="wakeCommand" maxlength="63" placeholder="xiao pen xiao pen" autocapitalize="none"></div><div class="field"><label for="threshold">检测阈值：<strong id="thresholdValue">20</strong>%</label><input id="threshold" type="range" min="1" max="60" value="20"></div><div class="field"><label for="ackMode">唤醒后回应</label><select id="ackMode"><option value="voice">我在呢</option><option value="tone">系统提示音</option></select></div></div><p class="hint">阈值越小越敏感，也越容易误唤醒。中文拼音使用小写字母并以单空格分隔，例如 <code>xiao pen xiao pen</code>。</p><div class="actions"><button id="saveVoice">保存语音设置</button><button id="reboot" class="secondary">重启并应用</button></div><p id="voiceNotice" class="notice"></p></section>
-<section class="card"><h2>模型与角色 Prompt</h2><p>对话大模型、角色 Prompt 和云端音色继续在小智控制台管理。小喷一号不保存你的控制台账号、Cookie 或高权限密钥。</p><a class="linkbtn secondary" href="https://xiaozhi.me" target="_blank" rel="noopener noreferrer">打开小智控制台</a></section>
+<section class="card"><h2>模型与角色 Prompt</h2><p>对话模型、角色 Prompt、音色和隐私策略统一由 Mac 上的“小喷 Lite”管理。设备不保存模型 API Key、控制台 Cookie 或高权限密钥。</p><a class="linkbtn secondary" href="http://127.0.0.1:3000" target="_blank" rel="noopener noreferrer">在 Mac 上打开小喷 Lite</a><p class="hint">如果当前页面是在手机上打开，请回到运行小喷 Lite 的 Mac 访问 <code>http://127.0.0.1:3000</code>。</p></section>
 <section class="card privacy"><strong>隐私说明</strong><br>预览来自设备 PSRAM 中的临时 JPEG 缓存，只发送给同网段浏览器；不会写入 Flash、不会上传云端。Flash 中仅保存人脸特征向量。</section>
 </main><script>
 const token='__ADMIN_TOKEN__',q=s=>document.querySelector(s),identities={none:'未识别',dad:'爸爸',stranger:'陌生人'},operations={idle:'空闲',waiting_for_face:'等待单人脸，请对准摄像头',multiple_faces:'检测到多人，请只保留爸爸',enrolled:'录入成功',timed_out:'录入超时，请重试',sample_limit:'样本已满',enroll_failed:'录入失败',clearing:'正在清空',cleared:'样本已清空',clear_failed:'清空失败'};let voiceLoaded=false,lastOperation='';
@@ -435,6 +460,9 @@ function refreshPreview(){const img=q('#preview');img.src='/api/preview.jpg?t='+
 async function post(path,body){const options={method:'POST',headers:{'X-Admin-Token':token}};if(body){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}const r=await fetch(path,options);const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'请求失败');return data}
 q('#enroll').onclick=async()=>{q('#faceNotice').textContent='正在启动 20 秒录入窗口…';try{await post('/api/enroll');q('#faceNotice').textContent='已开始，请让爸爸一人正对摄像头';await getStatus()}catch(e){q('#faceNotice').textContent=e.message}};
 q('#clear').onclick=async()=>{if(!confirm('确定清空全部爸爸人脸样本吗？'))return;try{await post('/api/clear');q('#faceNotice').textContent='清空指令已提交';await getStatus()}catch(e){q('#faceNotice').textContent=e.message}};
+async function testAnnouncement(identity){q('#announceNotice').textContent='已触发，正在等待 LLM 生成播报…';try{await post('/api/announce?identity='+identity);q('#announceNotice').textContent='事件已提交，请听小喷播报'}catch(e){q('#announceNotice').textContent=e.message}}
+q('#testDad').onclick=()=>testAnnouncement('dad');
+q('#testStranger').onclick=()=>testAnnouncement('stranger');
 q('#threshold').oninput=e=>q('#thresholdValue').textContent=e.target.value;
 q('#saveVoice').onclick=async()=>{const body={wake_text:q('#wakeText').value.trim(),wake_command:q('#wakeCommand').value.trim().toLowerCase().replace(/\s+/g,' '),threshold:Number(q('#threshold').value),ack_mode:q('#ackMode').value};q('#voiceNotice').textContent='正在保存…';try{await post('/api/voice',body);q('#voiceNotice').textContent='已保存，请点击“重启并应用”';q('#reboot').disabled=false}catch(e){q('#voiceNotice').textContent=e.message}};
 q('#reboot').onclick=async()=>{if(!confirm('现在重启小喷一号并应用语音设置吗？'))return;try{await post('/api/reboot');q('#voiceNotice').textContent='设备正在重启，页面约 15 秒后恢复';q('#reboot').disabled=true}catch(e){q('#voiceNotice').textContent=e.message}};

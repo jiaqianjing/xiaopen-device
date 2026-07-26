@@ -1,175 +1,176 @@
-# An MCP-based Chatbot
+# 小喷一号固件（XiaoPen ESP32）
 
-> **XiaoPen One / 小喷一号 fork:** this repository adds a CoolKit XZ-02 ESP32-S3 build with the local wake phrase “小喷小喷”, an on-device face-recognition pipeline, and a LAN-only management console. See [the board documentation](main/boards/coolkit-xz-02/README.md).
+> 为 CoolKit XZ-02 / ESP32-S3 N16R8 打造的本地优先桌面宠物与家庭语音终端。
 
-(English | [中文](README_zh.md) | [日本語](README_ja.md))
+[![License: MIT](https://img.shields.io/badge/License-MIT-76dda7.svg)](LICENSE)
+[![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.5.2-e7352c.svg)](https://github.com/espressif/esp-idf)
+[![Target](https://img.shields.io/badge/target-ESP32--S3-111719.svg)](#硬件材料)
 
-## Introduction
+小喷一号把唤醒、录音、全屏颜文字、人脸事件和语音播报放在一块
+ESP32-S3 开发板上运行。模型、Prompt、API Key 和隐私策略由 Mac 上的
+[小喷 Lite](https://github.com/jiaqianjing/xiaopen-lite) 管理，固件不依赖第三方
+设备后台。
 
-👉 [Human: Give AI a camera vs AI: Instantly finds out the owner hasn't washed hair for three days【bilibili】](https://www.bilibili.com/video/BV1bpjgzKEhd/)
+## 产品界面
 
-👉 [Handcraft your AI girlfriend, beginner's guide【bilibili】](https://www.bilibili.com/video/BV1XnmFYLEJN/)
+![小喷一号本地设备管理页](docs/images/device-admin.jpg)
 
-As a voice interaction entry, the XiaoZhi AI chatbot leverages the AI capabilities of large models like Qwen / DeepSeek, and achieves multi-terminal control via the MCP protocol.
+设备连接 Wi-Fi 后，同一局域网中的浏览器可以查看摄像头状态、最近一帧预览、
+爸爸样本数、识别结果、唤醒词和门口播报测试。
 
-<img src="docs/mcp-based-graph.jpg" alt="Control everything via MCP" width="320">
+## 功能
 
-## Version Notes
+- 全屏桌面宠物颜文字：眨眼、视线移动，以及高兴、伤心、生气、思考、困倦、
+  惊讶等情绪
+- 本地自定义唤醒：默认“`小喷小喷`”，可在设备管理页修改显示文字、拼音和阈值
+- 语音交互：通过 XiaoPen Device Protocol v1 与自托管网关交换 Opus 音频
+- 本地 OTA 发现：从局域网中的小喷 Lite 获取 WebSocket 地址和设备 Token
+- ESP32-CAM 联动：拉取局域网 JPEG，在 S3 上完成检测、特征提取和比对
+- 人脸录入：保存最多 5 份爸爸特征向量，不保存原始照片
+- 即兴门口播报：只向 LLM 提交 `dad` / `stranger` 身份事件，不提交人脸图片
+- 离线兜底：网关或模型不可用时播放固件内置的固定提示音
+- 局域网管理页：无需外部字体、脚本、CDN 或云端账号
 
-The current v2 version is incompatible with the v1 partition table, so it is not possible to upgrade from v1 to v2 via OTA. For partition table details, see [partitions/v2/README.md](partitions/v2/README.md).
+## 系统架构
 
-All hardware running v1 can be upgraded to v2 by manually flashing the firmware.
+```mermaid
+flowchart LR
+    CAM["ESP32-CAM<br/>JPEG 采集"] -->|"局域网 /jpg"| S3["小喷一号<br/>ESP32-S3"]
+    S3 -->|"dad / stranger 事件<br/>Opus 音频"| LITE["小喷 Lite<br/>Mac 本地控制台"]
+    LITE <--> MODELS["本地或自选云端模型<br/>ASR / LLM / TTS"]
+    S3 --> FACE["全屏颜文字<br/>本地唤醒与播报"]
+```
 
-The stable version of v1 is 1.9.2. You can switch to v1 by running `git checkout v1`. The v1 branch will be maintained until February 2026.
+ESP32-CAM 只负责采集，S3 负责设备交互，小喷 Lite 负责模型编排。三个组件可以
+独立替换或升级。
 
-### Features Implemented
+## 硬件材料
 
-- Wi-Fi / ML307 Cat.1 4G
-- Offline voice wake-up [ESP-SR](https://github.com/espressif/esp-sr)
-- Supports two communication protocols ([Websocket](docs/websocket.md) or MQTT+UDP)
-- Uses OPUS audio codec
-- Voice interaction based on streaming ASR + LLM + TTS architecture
-- Speaker recognition, identifies the current speaker [3D Speaker](https://github.com/modelscope/3D-Speaker)
-- OLED / LCD display, supports emoji display
-- Battery display and power management
-- Multi-language support (Chinese, English, Japanese)
-- Supports ESP32-C3, ESP32-S3, ESP32-P4 chip platforms
-- Device-side MCP for device control (Speaker, LED, Servo, GPIO, etc.)
-- Cloud-side MCP to extend large model capabilities (smart home control, PC desktop operation, knowledge search, email, etc.)
-- Customizable wake words, fonts, emojis, and chat backgrounds with online web-based editing ([Custom Assets Generator](https://github.com/78/xiaozhi-assets-generator))
+| 材料 | 规格 | 数量 | 用途 |
+| --- | --- | ---: | --- |
+| 主控板 | CoolKit XZ-02，ESP32-S3 N16R8 | 1 | 唤醒、录音、显示和播报 |
+| 显示屏 | 板载 1.54 英寸 240×240 TFT | 1 | 全屏颜文字 |
+| 音频硬件 | 板载麦克风、Codec 与扬声器 | 1 套 | 语音输入输出 |
+| 门口摄像头 | AI-Thinker ESP32-CAM + OV2640 | 1 | JPEG 图像采集，可选 |
+| 主机 | Mac 或其他可运行小喷 Lite 的电脑 | 1 | 模型与设备网关 |
+| 网络 | 2.4 GHz Wi-Fi 局域网 | 1 | 设备互联 |
+| 烧录线 | 支持数据传输的 USB-C 线 | 1 | 固件烧录与串口日志 |
 
-## Hardware
+ESP32-CAM 固件单独维护在
+[jiaqianjing/esp32-cam-learning](https://github.com/jiaqianjing/esp32-cam-learning)。
 
-### Breadboard DIY Practice
+## 默认行为
 
-See the Feishu document tutorial:
+- 唤醒词：`小喷小喷`（识别拼音 `xiao pen xiao pen`）
+- 唤醒回应：本地音频“我在呢”
+- 摄像头地址：`http://192.168.31.91/jpg`
+- 设备管理页：`http://设备IP:8080`
+- 本地网关 OTA：通过 `CONFIG_OTA_URL` 设置
+- 人脸数据库：Flash `/face` 分区，仅保存特征向量
 
-👉 ["XiaoZhi AI Chatbot Encyclopedia"](https://ccnphfhqs21z.feishu.cn/wiki/F5krwD16viZoF0kKkvDcrZNYnhb?from=from_copylink)
+没有爸爸样本时，设备不会把看到的人直接判定为陌生人，而是先提示录入样本。
 
-Breadboard demo:
+## 按键
 
-![Breadboard Demo](docs/v1/wiring2.jpg)
+| 操作 | 功能 |
+| --- | --- |
+| 中间键单击 | 开始或停止对话；首次启动进入配网 |
+| 中间键双击 | 录入一份爸爸人脸特征 |
+| 中间键长按 | 显示设备管理页地址 |
+| 减号键双击 | 清空全部爸爸人脸特征 |
+| 加减号单击或长按 | 调节音量 |
 
-### Supports 70+ Open Source Hardware (Partial List)
+## 构建
 
-- <a href="https://oshwhub.com/li-chuang-kai-fa-ban/li-chuang-shi-zhan-pai-esp32-s3-kai-fa-ban" target="_blank" title="LiChuang ESP32-S3 Development Board">LiChuang ESP32-S3 Development Board</a>
-- <a href="https://github.com/espressif/esp-box" target="_blank" title="Espressif ESP32-S3-BOX3">Espressif ESP32-S3-BOX3</a>
-- <a href="https://docs.m5stack.com/zh_CN/core/CoreS3" target="_blank" title="M5Stack CoreS3">M5Stack CoreS3</a>
-- <a href="https://docs.m5stack.com/en/atom/Atomic%20Echo%20Base" target="_blank" title="AtomS3R + Echo Base">M5Stack AtomS3R + Echo Base</a>
-- <a href="https://gf.bilibili.com/item/detail/1108782064" target="_blank" title="Magic Button 2.4">Magic Button 2.4</a>
-- <a href="https://www.waveshare.net/shop/ESP32-S3-Touch-AMOLED-1.8.htm" target="_blank" title="Waveshare ESP32-S3-Touch-AMOLED-1.8">Waveshare ESP32-S3-Touch-AMOLED-1.8</a>
-- <a href="https://github.com/Xinyuan-LilyGO/T-Circle-S3" target="_blank" title="LILYGO T-Circle-S3">LILYGO T-Circle-S3</a>
-- <a href="https://oshwhub.com/tenclass01/xmini_c3" target="_blank" title="XiaGe Mini C3">XiaGe Mini C3</a>
-- <a href="https://oshwhub.com/movecall/cuican-ai-pendant-lights-up-y" target="_blank" title="Movecall CuiCan ESP32S3">CuiCan AI Pendant</a>
-- <a href="https://github.com/WMnologo/xingzhi-ai" target="_blank" title="WMnologo-Xingzhi-1.54">WMnologo-Xingzhi-1.54TFT</a>
-- <a href="https://www.seeedstudio.com/SenseCAP-Watcher-W1-A-p-5979.html" target="_blank" title="SenseCAP Watcher">SenseCAP Watcher</a>
-- <a href="https://www.bilibili.com/video/BV1BHJtz6E2S/" target="_blank" title="ESP-HI Low Cost Robot Dog">ESP-HI Low Cost Robot Dog</a>
+需要 ESP-IDF 5.5.2：
 
-<div style="display: flex; justify-content: space-between;">
-  <a href="docs/v1/lichuang-s3.jpg" target="_blank" title="LiChuang ESP32-S3 Development Board">
-    <img src="docs/v1/lichuang-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/espbox3.jpg" target="_blank" title="Espressif ESP32-S3-BOX3">
-    <img src="docs/v1/espbox3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/m5cores3.jpg" target="_blank" title="M5Stack CoreS3">
-    <img src="docs/v1/m5cores3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/atoms3r.jpg" target="_blank" title="AtomS3R + Echo Base">
-    <img src="docs/v1/atoms3r.jpg" width="240" />
-  </a>
-  <a href="docs/v1/magiclick.jpg" target="_blank" title="Magic Button 2.4">
-    <img src="docs/v1/magiclick.jpg" width="240" />
-  </a>
-  <a href="docs/v1/waveshare.jpg" target="_blank" title="Waveshare ESP32-S3-Touch-AMOLED-1.8">
-    <img src="docs/v1/waveshare.jpg" width="240" />
-  </a>
-  <a href="docs/v1/lilygo-t-circle-s3.jpg" target="_blank" title="LILYGO T-Circle-S3">
-    <img src="docs/v1/lilygo-t-circle-s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/xmini-c3.jpg" target="_blank" title="XiaGe Mini C3">
-    <img src="docs/v1/xmini-c3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/movecall-cuican-esp32s3.jpg" target="_blank" title="CuiCan">
-    <img src="docs/v1/movecall-cuican-esp32s3.jpg" width="240" />
-  </a>
-  <a href="docs/v1/wmnologo_xingzhi_1.54.jpg" target="_blank" title="WMnologo-Xingzhi-1.54">
-    <img src="docs/v1/wmnologo_xingzhi_1.54.jpg" width="240" />
-  </a>
-  <a href="docs/v1/sensecap_watcher.jpg" target="_blank" title="SenseCAP Watcher">
-    <img src="docs/v1/sensecap_watcher.jpg" width="240" />
-  </a>
-  <a href="docs/v1/esp-hi.jpg" target="_blank" title="ESP-HI Low Cost Robot Dog">
-    <img src="docs/v1/esp-hi.jpg" width="240" />
-  </a>
-</div>
+```bash
+git clone https://github.com/jiaqianjing/xiaopen-esp32.git
+cd xiaopen-esp32
 
-## Software
+source /path/to/esp-idf/export.sh
+python scripts/release.py coolkit-xz-02 --name coolkit-xz-02
+```
 
-### Firmware Flashing
+首次执行发布脚本会选择 CoolKit XZ-02、16 MB 人脸分区和小喷自定义唤醒模型。
+之后可用 `idf.py build` 做增量构建。主要输出为：
 
-For beginners, it is recommended to use the firmware that can be flashed without setting up a development environment.
+```text
+build/xiaopen.bin
+releases/v2.3.0_coolkit-xz-02.zip
+```
 
-The firmware connects to the official [xiaozhi.me](https://xiaozhi.me) server by default. Personal users can register an account to use the Qwen real-time model for free.
+如需修改本地网关地址：
 
-👉 [Beginner's Firmware Flashing Guide](https://ccnphfhqs21z.feishu.cn/wiki/Zpz4wXBtdimBrLk25WdcXzxcnNS)
+```bash
+idf.py menuconfig
+```
 
-### Development Environment
+进入 `XiaoPen Assistant` → `Default OTA URL`，填写：
 
-- Cursor or VSCode
-- Install ESP-IDF plugin, select SDK version 5.4 or above
-- Linux is better than Windows for faster compilation and fewer driver issues
-- This project uses Google C++ code style, please ensure compliance when submitting code
+```text
+http://你的Mac局域网IP:8091/xiaopen/ota/
+```
 
-### Developer Documentation
+## 烧录
 
-- [Custom Board Guide](docs/custom-board.md) - Learn how to create custom boards for XiaoZhi AI
-- [MCP Protocol IoT Control Usage](docs/mcp-usage.md) - Learn how to control IoT devices via MCP protocol
-- [MCP Protocol Interaction Flow](docs/mcp-protocol.md) - Device-side MCP protocol implementation
-- [MQTT + UDP Hybrid Communication Protocol Document](docs/mqtt-udp.md)
-- [A detailed WebSocket communication protocol document](docs/websocket.md)
+先确认端口属于 ESP32-S3，再执行：
 
-## Large Model Configuration
+```bash
+idf.py -p /dev/cu.usbmodemXXXX flash monitor
+```
 
-If you already have a XiaoZhi AI chatbot device and have connected to the official server, you can log in to the [xiaozhi.me](https://xiaozhi.me) console for configuration.
+当前分区设计会写入 bootloader、应用、分区表和资源分区，不会主动擦除 NVS
+Wi-Fi 配置或 `/face` 人脸特征分区。量产或更换分区表前仍应先备份重要数据。
 
-👉 [Backend Operation Video Tutorial (Old Interface)](https://www.bilibili.com/video/BV1jUCUY2EKM/)
+## 本地设备管理
 
-## Related Open Source Projects
+设备联网后长按中间键查看 IP，然后访问：
 
-For server deployment on personal computers, refer to the following open-source projects:
+```text
+http://设备IP:8080
+```
 
-- [xinnan-tech/xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) Python server
-- [joey-zhou/xiaozhi-esp32-server-java](https://github.com/joey-zhou/xiaozhi-esp32-server-java) Java server
-- [AnimeAIChat/xiaozhi-server-go](https://github.com/AnimeAIChat/xiaozhi-server-go) Golang server
-- [hackers365/xiaozhi-esp32-server-golang](https://github.com/hackers365/xiaozhi-esp32-server-golang) Golang server
+管理页具备以下安全边界：
 
-Other client projects using the XiaoZhi communication protocol:
+- 只接受与设备相同子网的 IPv4 请求
+- 写操作需要每次启动随机生成的页面 Token
+- 摄像头预览只保存在 PSRAM，下一帧覆盖，断电消失
+- 原始图片不写入 Flash，也不发送给 LLM
+- 模型 API Key 只保存在运行小喷 Lite 的电脑上
 
-- [huangjunsen0406/py-xiaozhi](https://github.com/huangjunsen0406/py-xiaozhi) Python client
-- [TOM88812/xiaozhi-android-client](https://github.com/TOM88812/xiaozhi-android-client) Android client
-- [100askTeam/xiaozhi-linux](http://github.com/100askTeam/xiaozhi-linux) Linux client by 100ask
-- [78/xiaozhi-sf32](https://github.com/78/xiaozhi-sf32) Bluetooth chip firmware by Sichuan
-- [QuecPython/solution-xiaozhiAI](https://github.com/QuecPython/solution-xiaozhiAI) QuecPython firmware by Quectel
+## 项目结构
 
-Custom Assets Tools:
+```text
+xiaopen-esp32/
+├── main/
+│   ├── application.*                 # 设备状态与语音会话
+│   ├── boards/coolkit-xz-02/         # 小喷一号板级实现
+│   ├── audio/                        # 唤醒、录音和音频播放
+│   ├── display/                      # LVGL 显示层
+│   └── protocols/                    # XiaoPen 设备协议兼容层
+├── partitions/                       # Flash 分区配置
+├── scripts/                          # 构建与发布脚本
+└── sdkconfig                         # 当前产品构建配置
+```
 
-- [78/xiaozhi-assets-generator](https://github.com/78/xiaozhi-assets-generator) Custom Assets Generator (Wake words, fonts, emojis, backgrounds)
+仓库保留了部分上游板卡驱动和内部 `CONFIG_XIAOZHI_*` 配置符号作为兼容层。
+它们不会进入 CoolKit XZ-02 的最终应用镜像，也不会使设备连接任何官方服务器；
+保留这些代码是为了以后扩展其他 ESP32 硬件时不必重新移植底层音频和显示驱动。
 
-## About the Project
+## 隐私与网络边界
 
-This is an open-source ESP32 project, released under the MIT license, allowing anyone to use it for free, including for commercial purposes.
+- 当前固件只使用 `CONFIG_OTA_URL` 指向的自托管网关
+- XiaoPen Device Protocol 使用局域网 HTTP/WebSocket，不应直接映射到公网
+- ESP32-CAM 和 S3 之间传输 JPEG 时应使用可信家庭局域网
+- 允许云端模型处理哪些数据，由小喷 Lite 的隐私策略显式控制
 
-We hope this project helps everyone understand AI hardware development and apply rapidly evolving large language models to real hardware devices.
+## 上游来源与 License
 
-If you have any ideas or suggestions, please feel free to raise Issues or join our [Discord](https://discord.gg/C759fGMBcZ) or QQ group: 1095994019
+本项目固件最初衍生自
+[78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32)，并保留其硬件抽象、
+音频管线及部分协议消息结构。小喷一号拥有独立产品名称、固件产物、局域网协议
+路径和自托管控制面，不依赖上游官方服务器。
 
-## Star History
-
-<a href="https://star-history.com/#78/xiaozhi-esp32&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=78/xiaozhi-esp32&type=Date" />
- </picture>
-</a>
+本项目遵循 [MIT License](LICENSE)。根据许可要求，上游版权声明保留在 LICENSE
+和相关源文件中。

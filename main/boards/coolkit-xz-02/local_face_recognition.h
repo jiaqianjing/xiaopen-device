@@ -49,6 +49,7 @@ public:
     bool Start();
     void RequestEnrollDad();
     void RequestClearDad();
+    void TestAnnouncement(LocalFaceIdentity identity);
     int EnrolledSampleCount() const { return enrolled_samples_.load(); }
     LocalFaceStatus GetStatus() const;
     bool CopyLatestJpeg(uint8_t*& data, size_t& size);
@@ -71,7 +72,7 @@ private:
     void UpdatePreview(const uint8_t* jpeg, size_t jpeg_size);
     void ProcessIdentity(Identity identity);
     void ResetPresence();
-    void Announce(Identity identity);
+    void Announce(Identity identity, bool bypass_cooldown = false);
     void Notify(const char* message);
 
     std::atomic<bool> running_{false};

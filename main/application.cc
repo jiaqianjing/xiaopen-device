@@ -1,4 +1,5 @@
 #include "application.h"
+#include "audio/demuxer/ogg_demuxer.h"
 #include "board.h"
 #include "display.h"
 #include "system_info.h"
@@ -410,7 +411,12 @@ void Application::CheckAssetsVersion() {
     // Apply assets
     assets.Apply();
     display->SetChatMessage("system", "");
+#ifdef CONFIG_BOARD_TYPE_COOLKIT_XZ_02
+    // This board uses a procedural full-screen pet face.
+    display->SetEmotion("neutral");
+#else
     display->SetEmotion("microchip_ai");
+#endif
 }
 
 void Application::CheckNewVersion() {
@@ -887,6 +893,85 @@ void Application::ContinueWakeWordInvoke(const std::string& wake_word) {
     play_popup_on_listening_ = true;
     SetListeningMode(GetDefaultListeningMode());
 #endif
+}
+
+void Application::SendAudioPrompt(const std::string_view& prompt_ogg,
+                                  const std::string_view& fallback_sound) {
+    Schedule([this, prompt_ogg, fallback_sound]() {
+        if (prompt_ogg.empty() || protocol_ == nullptr ||
+            GetDeviceState() != kDeviceStateIdle) {
+            ESP_LOGW(TAG, "Cannot start proactive audio prompt in state %d",
+                     static_cast<int>(GetDeviceState()));
+            if (!fallback_sound.empty()) {
+                audio_service_.PlaySound(fallback_sound);
+            }
+            return;
+        }
+
+        if (!protocol_->IsAudioChannelOpened()) {
+            SetDeviceState(kDeviceStateConnecting);
+            Schedule([this, prompt_ogg, fallback_sound]() {
+                ContinueAudioPrompt(prompt_ogg, fallback_sound);
+            });
+            return;
+        }
+        ContinueAudioPrompt(prompt_ogg, fallback_sound);
+    });
+}
+
+void Application::ContinueAudioPrompt(const std::string_view& prompt_ogg,
+                                      const std::string_view& fallback_sound) {
+    const DeviceState state = GetDeviceState();
+    if (protocol_ == nullptr ||
+        (state != kDeviceStateIdle && state != kDeviceStateConnecting)) {
+        if (!fallback_sound.empty()) {
+            audio_service_.PlaySound(fallback_sound);
+        }
+        return;
+    }
+
+    Board::GetInstance().SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
+    if (!protocol_->IsAudioChannelOpened() && !protocol_->OpenAudioChannel()) {
+        ESP_LOGW(TAG, "Failed to open channel for proactive audio prompt");
+        if (!fallback_sound.empty()) {
+            audio_service_.PlaySound(fallback_sound);
+        }
+        SetDeviceState(kDeviceStateIdle);
+        return;
+    }
+
+    // Upload only a built-in synthetic event sentence. The live microphone,
+    // camera image and face feature never enter this cloud conversation.
+    listening_mode_ = kListeningModeManualStop;
+    audio_service_.EnableVoiceProcessing(false);
+    while (audio_service_.PopPacketFromSendQueue());
+    protocol_->SendStartListening(kListeningModeManualStop);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    bool sent_audio = false;
+    auto demuxer = std::make_unique<OggDemuxer>();
+    demuxer->OnDemuxerFinished(
+        [this, &sent_audio](const uint8_t* data, int sample_rate, size_t size) {
+            auto packet = std::make_unique<AudioStreamPacket>();
+            packet->sample_rate = sample_rate;
+            packet->frame_duration = 60;
+            packet->payload.assign(data, data + size);
+            sent_audio = protocol_->SendAudio(std::move(packet)) || sent_audio;
+            vTaskDelay(pdMS_TO_TICKS(55));
+        });
+    demuxer->Process(reinterpret_cast<const uint8_t*>(prompt_ogg.data()),
+                     prompt_ogg.size());
+    protocol_->SendStopListening();
+    ESP_LOGI(TAG, "Sent proactive synthetic audio prompt (%u bytes)",
+             static_cast<unsigned>(prompt_ogg.size()));
+
+    if (!sent_audio) {
+        ESP_LOGW(TAG, "No audio packet sent for proactive prompt");
+        if (!fallback_sound.empty()) {
+            audio_service_.PlaySound(fallback_sound);
+        }
+        SetDeviceState(kDeviceStateIdle);
+    }
 }
 
 void Application::HandleStateChangedEvent() {

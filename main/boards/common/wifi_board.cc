@@ -55,7 +55,7 @@ void WifiBoard::StartNetwork() {
 
     // Initialize WiFi manager
     WifiManagerConfig config;
-    config.ssid_prefix = "Xiaozhi";
+    config.ssid_prefix = "XiaoPen";
     config.language = Lang::CODE;
     // Set a DHCP hostname so the router shows a friendly name instead of "espressif".
     // Uses the same "<prefix>-<last 2 MAC bytes>" scheme as the config AP SSID.

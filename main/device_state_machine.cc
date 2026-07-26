@@ -78,9 +78,11 @@ bool DeviceStateMachine::IsValidTransition(DeviceState from, DeviceState to) con
                    to == kDeviceStateWifiConfiguring;
 
         case kDeviceStateConnecting:
-            // Can go to idle (failed) or listening (success)
+            // A normal microphone session enters listening after the channel
+            // opens. A proactive synthetic prompt can receive TTS directly.
             return to == kDeviceStateIdle ||
-                   to == kDeviceStateListening;
+                   to == kDeviceStateListening ||
+                   to == kDeviceStateSpeaking;
 
         case kDeviceStateListening:
             // Can go to speaking or idle

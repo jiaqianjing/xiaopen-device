@@ -1,6 +1,7 @@
 #include "wifi_board.h"
 #include "codecs/no_audio_codec.h"
 #include "display/lcd_display.h"
+#include "pet_face_display.h"
 #include "system_reset.h"
 #include "application.h"
 #include "button.h"
@@ -29,7 +30,7 @@ private:
     Button boot_button_;
     Button volume_up_button_;
     Button volume_down_button_;
-    SpiLcdDisplay* display_ = nullptr;
+    PetFaceDisplay* display_ = nullptr;
     PowerSaveTimer* power_save_timer_ = nullptr;
     PowerManager* power_manager_ = nullptr;
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
@@ -105,7 +106,7 @@ private:
 
         // Enrollment only stores a feature vector in the private face_db
         // partition. The source image is discarded immediately and is never
-        // passed to Xiaozhi's camera/MCP upload paths.
+        // passed to camera/MCP upload paths.
         boot_button_.OnDoubleClick([this]() {
             power_save_timer_->WakeUp();
             local_face_->RequestEnrollDad();
@@ -172,7 +173,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
         ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, true));
 
-        display_ = new SpiLcdDisplay(
+        display_ = new PetFaceDisplay(
             panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT,
             DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
             DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
