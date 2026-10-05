@@ -1,4 +1,4 @@
-# 小喷一号固件（XiaoPen ESP32）
+# 小喷一号端侧固件（XiaoPen Device）
 
 > 为 CoolKit XZ-02 / ESP32-S3 N16R8 打造的本地优先桌面宠物与家庭语音终端。
 
@@ -8,7 +8,7 @@
 
 小喷一号把唤醒、录音、全屏颜文字、人脸事件和语音播报放在一块
 ESP32-S3 开发板上运行。模型、Prompt、API Key 和隐私策略由 Mac 上的
-[小喷 Lite](https://github.com/jiaqianjing/xiaopen-lite) 管理，固件不依赖第三方
+[小喷 Hub](https://github.com/jiaqianjing/xiaopen-hub) 管理，固件不依赖第三方
 设备后台。
 
 ## 产品界面
@@ -23,8 +23,8 @@ ESP32-S3 开发板上运行。模型、Prompt、API Key 和隐私策略由 Mac �
 - 全屏桌面宠物颜文字：眨眼、视线移动，以及高兴、伤心、生气、思考、困倦、
   惊讶等情绪
 - 本地自定义唤醒：默认“`小喷小喷`”，可在设备管理页修改显示文字、拼音和阈值
-- 语音交互：通过 XiaoPen Device Protocol v1 与自托管网关交换 Opus 音频
-- 本地 OTA 发现：从局域网中的小喷 Lite 获取 WebSocket 地址和设备 Token
+- 语音交互：通过 XiaoPen Device Protocol v1 与自托管网关中枢（XiaoPen Hub）交换 Opus 音频
+- 本地 OTA 发现：从局域网中的小喷 Hub 获取 WebSocket 地址和设备 Token
 - ESP32-CAM 联动：拉取局域网 JPEG，在 S3 上完成检测、特征提取和比对
 - 人脸录入：保存最多 5 份爸爸特征向量，不保存原始照片
 - 即兴门口播报：只向 LLM 提交 `dad` / `stranger` 身份事件，不提交人脸图片
@@ -85,8 +85,8 @@ ESP32-CAM 固件单独维护在
 需要 ESP-IDF 5.5.2：
 
 ```bash
-git clone https://github.com/jiaqianjing/xiaopen-esp32.git
-cd xiaopen-esp32
+git clone https://github.com/jiaqianjing/xiaopen-device.git
+cd xiaopen-device
 
 source /path/to/esp-idf/export.sh
 python scripts/release.py coolkit-xz-02 --name coolkit-xz-02
@@ -137,12 +137,12 @@ http://设备IP:8080
 - 写操作需要每次启动随机生成的页面 Token
 - 摄像头预览只保存在 PSRAM，下一帧覆盖，断电消失
 - 原始图片不写入 Flash，也不发送给 LLM
-- 模型 API Key 只保存在运行小喷 Lite 的电脑上
+- 模型 API Key 只保存在运行小喷 Hub 的电脑上
 
 ## 项目结构
 
 ```text
-xiaopen-esp32/
+xiaopen-device/
 ├── main/
 │   ├── application.*                 # 设备状态与语音会话
 │   ├── boards/coolkit-xz-02/         # 小喷一号板级实现
